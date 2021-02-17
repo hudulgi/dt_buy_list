@@ -15,7 +15,7 @@ class MySQL:
                                     password=_info['password'],
                                     db=_info['db'],
                                     charset=_info['charset'])
-        self.cursor = self.conn.cursor()
+        self.cursor = self.conn.cursor(pymysql.cursors.DictCursor)
 
     def close(self):
         self.conn.close()
@@ -34,7 +34,7 @@ class MySQL:
 
 DB_info['db'] = 'dt_king'
 mydb = MySQL(DB_info)
-mydb.create_table("buy_list", "(Date datetime primary key,Code char(7),OBJ Decimal,Price Decimal)")
+mydb.create_table("buy_list", "(id INT primary key AUTO_INCREMENT,Date datetime,Code char(7),OBJ Decimal,Price Decimal)")
 mydb.close()
 
 #Date date primary key,Open Decimal,High Decimal,Low Decimal,Close Decimal, Volume Decimal
