@@ -1,14 +1,11 @@
 import pymysql
 from DB_info import *
+import pandas as pd
+import datetime
 
 
 class MySQL:
     def __init__(self, _info):
-        '''
-        sql_eng = "mysql+mysqldb://%s:%s@%s:%s/%s" % (DBInfo['user'], DBInfo['password'], DBInfo['host'],
-                                                      DBInfo['port'], DBInfo['db'])
-        self.engine = create_engine(sql_eng, encoding=DBInfo['charset'])
-        '''
         self.conn = pymysql.connect(host=_info['host'],
                                     port=_info['port'],
                                     user=_info['user'],
@@ -36,7 +33,7 @@ class MySQL:
         _val = list()
         for _c, _v in _data.items():
             _col.append(_c)
-            _val.append(_v)
+            _val.append('"' + _v + '"')
         _col = ", ".join(_col)
         _val = ", ".join(_val)
         _sql = f"INSERT INTO {_table}({_col}) VALUES ({_val})"
@@ -44,16 +41,40 @@ class MySQL:
         self.cursor.execute(_sql)
         self.conn.commit()
 
+    def data_duplicate_check(self, _date, _code, _table='buy_list'):
+        _sql = f"SELECT Code FROM {_table} WHERE DATE(Date)='{_date}'"
+        _df = pd.read_sql(_sql, con=self.conn)
+        _list_from_df = _df.Code.tolist()
+        if _code in _list_from_df:
+            return True
+        else:
+            return False
 
-DB_info['db'] = 'dt_king'
-mydb = MySQL(DB_info)
-#mydb.create_table("buy_list22", "id INT primary key AUTO_INCREMENT,Date datetime,Code char(7),OBJ Decimal,Price Decimal")
 
-#sql = "INSERT INTO buy_list(Date, Code, OBJ, Price) VALUES (%s, %s, %s, %s)"
-#       INSERT INTO buy_list(Date, Code, OBJ, Price) VALUES (2021-02-18 09:38:00, A111111, 1, 2)
-#mydb.cursor.execute(sql,                                  ("2021-02-18 08:38:00", "A123456", "111", "100"))
-#mydb.conn.commit()
-mydb.insert_data("buy_list", {"Date": "2021-02-18 00:00:00", "Code": "A123457", "OBJ": "111", "Price": "100"})
-mydb.close()
+class ManBuyList:
+    def __init__(self, _path):
+        self.data_path = _path
 
-#Date date primary key,Open Decimal,High Decimal,Low Decimal,Close Decimal, Volume Decimal
+    def read_file(self, _file):
+        return pd.read_csv(self.data_path + "\\" + _file)
+
+
+if __name__ == "__main__":
+    now = datetime.datetime.now()
+
+    buy = ManBuyList("C:\\CloudStation\\dt_data\\daily_data\\buy_list")
+    df = buy.read_file("buy_%s.csv" % now.strftime("%y%m%d"))
+
+    mydb = MySQL(DB_info)
+    #mydb.create_table("buy_list", "id INT primary key AUTO_INCREMENT,Date datetime,Code char(7),OBJ Decimal,Price Decimal")
+
+    for i in df.index:
+        val = df.at[i, 'Code']
+        if not mydb.data_duplicate_check(now.strftime("%Y-%m-%d"), val):
+            mydb.insert_data("buy_list", {"Date": df.at[i, 'Date'],
+                                          "Code": df.at[i, 'Code'],
+                                          "OBJ": str(df.at[i, 'Object']),
+                                          "Price": str(df.at[i, 'Price'])})
+        else:
+            print("항목중복")
+    mydb.close()
